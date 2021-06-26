@@ -43,3 +43,18 @@ h1 {
 body {
     color: white;
 }
+
+#stop_stream {
+    height: 50px;
+    width: 150px;
+}
+
+#continue_stream {
+    height: 50px;
+    width: 150px;
+}
+
+#translation-of-photo {
+    height: 50px;
+    width: 150px;
+}

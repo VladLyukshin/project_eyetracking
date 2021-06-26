@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.2/jquery.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs/dist/tf.min.js"> </script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface"></script>
     <title>Прототип для системы отслеживания положения лица и глаз человека</title>
     <link href= "{{ url_for('static', filename='ProjectPartCSS.css') }}" rel="stylesheet" type="text/css"/>
-    <script type="module" src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@2.0.0/dist/tf.min.js"></script>
     <script src="{{ url_for('static', filename='face-api.min.js') }}" type="text/javascript"></script>
 </head>
 <body background="{{ url_for('static', filename='ProjectPicture.jpeg') }}">
@@ -30,6 +31,7 @@
     $('#translation-of-photo').click(function() {
         $("#translation-of-photo").css("display", "none");
         $("#name").css("display", "none");
+        $("#stop_stream").css("display", "none");
     });
 </script>
 </div>
@@ -43,11 +45,31 @@
 
 
 <div id="attention">
-Чтобы запустить скрипт, после кнопки Старт нажмите на Продолжить. Для паузы нажмите Стоп. Чтобы возобновить скрипт после паузы нажмите Продолжить.
+    Запуск скрипта: <br>
+    <br>
+    - Введите имя в поле <br>
+    - Нажмите “Старт” <br>
+    - Далее “Продолжить” <br>
+    <br>
+    Готово! <br>
+    <br>
+    Для паузы нажмите “Стоп”.
 </div>
 
 <button type = "submit" style="font-size: 20px;" id="stop_stream">Стоп</button>
+<script>
+    $('#stop_stream').click(function() {
+        $("#stop_stream").css("display", "none");
+        $("#continue_stream").css("display", "block");
+    });
+</script>
 <button type = "submit" style="font-size: 20px;" id="continue_stream">Продолжить</button>
+<script>
+    $('#continue_stream').click(function() {
+        $("#continue_stream").css("display", "none");
+        $("#stop_stream").css("display", "block");
+    });
+</script>
 
 </body>
 

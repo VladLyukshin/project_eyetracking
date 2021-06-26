@@ -17,114 +17,116 @@ export function include_model() {
     ]).then(take_photo_and_request());
 }
 
-async function Get_Metric(model, displaySize) {
+async function Get_Metric(blazeface_detector, model) {
     tf.engine().startScope();
-    // проверка модели Tiny
-    let detector = new faceapi.TinyFaceDetectorOptions();
-    const detections = await faceapi.detectAllFaces(video, detector).withFaceLandmarks();
-    const resizedDetections = faceapi.resizeResults(detections, displaySize);
-    detector = null;
 
-    if (resizedDetections['0']) {
-        const positions = resizedDetections['0']['landmarks']['positions'];
-        // Угол поворота изображения
-        let angle = Math.acos(
-            Math.abs(positions[6 + 36]['_x'] - positions[3 + 36]['_x']) /
-                Math.sqrt(
-                    (positions[6 + 36]['_x'] - positions[3 + 36]['_x']) *
-                        (positions[6 + 36]['_x'] - positions[3 + 36]['_x']) +
-                        (positions[6 + 36]['_y'] - positions[3 + 36]['_y']) *
-                            (positions[6 + 36]['_y'] - positions[3 + 36]['_y']),
-                ),
+    // Детектирование лица
+    const predictions = await blazeface_detector.estimateFaces(video, false);
+    // Получаем первоначальное изображение в виде тензора
+    let example = tf.browser.fromPixels(video);
+
+    if (predictions.length > 0) {
+        // Считаем расстояния:
+        // Расстояние d - между точками глаз
+        let d = Math.sqrt(
+            Math.pow(predictions[0].landmarks[1][0] - predictions[0].landmarks[0][0], 2) +
+                Math.pow(predictions[0].landmarks[1][1] - predictions[0].landmarks[0][1], 2),
         );
-        if (positions[3 + 36]['_y'] > positions[6 + 36]['_y']) angle = -angle;
-        const dist_left = Math.sqrt(
-            Math.pow(positions[36]['_x'] - positions[0]['_x'], 2) +
-                Math.pow(positions[36]['_y'] - positions[0]['_y'], 2),
+
+        // Расстояние d1 - между точками правого глаза и рта
+        let d1 = Math.sqrt(
+            Math.pow(predictions[0].landmarks[3][0] - predictions[0].landmarks[0][0], 2) +
+                Math.pow(predictions[0].landmarks[3][1] - predictions[0].landmarks[0][1], 2),
         );
-        const dist_right = Math.sqrt(
-            Math.pow(positions[16]['_x'] - positions[45]['_x'], 2) +
-                Math.pow(positions[16]['_y'] - positions[45]['_y'], 2),
+
+        // Расстояние dist1 - между точками правого глаза и правого уха
+        let dist1 = Math.sqrt(
+            Math.pow(predictions[0].landmarks[5][0] - predictions[0].landmarks[1][0], 2) +
+                Math.pow(predictions[0].landmarks[5][1] - predictions[0].landmarks[1][1], 2),
         );
-        const example = tf.browser.fromPixels(video);
-        // Тензор левого глаза
-        const left_eye = example.slice(
-            [
-                Math.round(
-                    positions[1 + 36]['_y'] -
-                        (2 / 3) * (positions[5 + 36]['_y'] - positions[1 + 36]['_y']),
-                ),
-                Math.round(
-                    positions[1 + 36]['_x'] -
-                        (2 / 3) * (positions[3 + 36]['_x'] - positions[0 + 36]['_x']),
-                ),
-                0,
-            ],
-            [
-                Math.round(
-                    positions[4 + 36]['_y'] +
-                        (4 / 3) * positions[5 + 36]['_y'] -
-                        (7 / 3) * positions[1 + 36]['_y'],
-                ),
-                Math.round(
-                    positions[4 + 36]['_x'] +
-                        (4 / 3) * positions[3 + 36]['_x'] -
-                        positions[1 + 36]['_x'] -
-                        (4 / 3) * positions[0 + 36]['_x'],
-                ),
-                3,
-            ],
+
+        // Расстояние dist2 - между точками левого глаза и левого уха
+        let dist2 = Math.sqrt(
+            Math.pow(predictions[0].landmarks[4][0] - predictions[0].landmarks[0][0], 2) +
+                Math.pow(predictions[0].landmarks[4][1] - predictions[0].landmarks[0][1], 2),
         );
+
+        // Угол поворота
+        var angle = Math.atan(
+            (predictions[0].landmarks[1][1] - predictions[0].landmarks[0][1]) /
+                (predictions[0].landmarks[1][0] - predictions[0].landmarks[0][0]),
+        );
+
+        // Осуществляем поворот
+        const rotated = tf.image
+            .rotateWithOffset(example.toFloat().expandDims(0), angle, 0)
+            .squeeze()
+            .toInt();
+
+        // Координаты правого глаза
+        let x0 = predictions[0].landmarks[0][0];
+        let y0 = predictions[0].landmarks[0][1];
+
+        // Координаты левого глаза
+        let x1 = predictions[0].landmarks[1][0];
+        let y1 = predictions[0].landmarks[1][1];
+
+        // Матрица поворота
+        let M = [
+            [Math.cos(angle), Math.sin(angle)],
+            [-Math.sin(angle), Math.cos(angle)],
+        ];
+
+        // Контроль выделения правого глаза
+        let y_start = M[1][0] * (x0 - 320) + M[1][1] * (y0 - 240) + 240 - (10 / 24) * d1;
+        let x_start = M[0][0] * (x0 - 320) + M[0][1] * (y0 - 240) + 320 - (5 / 15) * d1;
+        if (y_start < 0) y_start = 0;
+        if (x_start < 0) x_start = 0;
+        let y_end = y_start + (14 / 24) * d1;
+        let x_end = x_start + (10 / 15) * d1;
+        if (y_end > video.height) y_end = video.height;
+        if (x_end > video.width) x_end = video.width;
+
         // Тензор правого глаза
-        const right_eye = example.slice(
-            [
-                Math.round(
-                    positions[7 + 36]['_y'] -
-                        (2 / 3) * (positions[5 + 36]['_y'] - positions[1 + 36]['_y']),
-                ),
-                Math.round(
-                    positions[7 + 36]['_x'] -
-                        (2 / 3) * (positions[3 + 36]['_x'] - positions[0 + 36]['_x']),
-                ),
-                0,
-            ],
-            [
-                Math.round(
-                    positions[4 + 36]['_y'] +
-                        (4 / 3) * positions[5 + 36]['_y'] -
-                        (7 / 3) * positions[1 + 36]['_y'],
-                ),
-                Math.round(
-                    positions[4 + 36]['_x'] +
-                        (4 / 3) * positions[3 + 36]['_x'] -
-                        positions[1 + 36]['_x'] -
-                        (4 / 3) * positions[0 + 36]['_x'],
-                ),
-                3,
-            ],
+        let right_eye = rotated.slice(
+            [Math.round(y_start), Math.round(x_start), 0],
+            [Math.round(y_end - y_start), Math.round(x_end - x_start), 3],
         );
 
-        // Конкатенация
-        let concat_eyes = tf.concat([left_eye, right_eye], 1);
-        // Загрузка модели
-        let tensor_1352 = tf.image
+        // Контроль выделения левого глаза
+        y_start = M[1][0] * (x1 - 320) + M[1][1] * (y1 - 240) + 240 - (10 / 24) * d1;
+        x_start = M[0][0] * (x1 - 320) + M[0][1] * (y1 - 240) + 320 - (5 / 15) * d1;
+        if (y_start < 0) y_start = 0;
+        if (x_start < 0) x_start = 0;
+        y_end = y_start + (14 / 24) * d1;
+        x_end = x_start + (10 / 15) * d1;
+        if (y_end > video.height) y_end = video.height;
+        if (x_end > video.width) x_end = video.width;
+
+        // Тензор левого глаза
+        let left_eye = rotated.slice(
+            [Math.round(y_start), Math.round(x_start), 0],
+            [Math.round(y_end - y_start), Math.round(x_end - x_start), 3],
+        );
+
+        // Конкатенация областей глаз
+        let concat_eyes = tf.concat([right_eye, left_eye], 1);
+
+        // Отправка в нейросеть
+        const tensor_1354 = tf.image
             .resizeBilinear(concat_eyes, [30, 15])
             .reshape([1350])
-            .concat(tf.tensor1d([dist_left, dist_right]));
-        let min_t = tensor_1352.min();
-        let max_t = tensor_1352.max();
-        let normilized = tensor_1352.sub(min_t).div(max_t);
-        let prediction = model.predict(normilized.expandDims(1).expandDims(0));
+            .concat(tf.tensor1d([dist1, dist2, d, Math.abs(d - d1)]));
+        const min_t = tensor_1354.min();
+        const max_t = tensor_1354.max();
+        const normilized = tensor_1354.sub(min_t).div(max_t.sub(min_t));
+        const prediction = model.predict(normilized.expandDims(1).expandDims(0));
         let result = prediction.dataSync()[0] * 100;
-        if (Math.abs(dist_right - dist_left) > 40 && result < 90) {
-            result += 10;
-        }
-
         tf.engine().endScope();
         return result;
     } else {
         tf.engine().endScope();
-        return 100;
+        return 0;
     }
 }
 
@@ -132,8 +134,8 @@ async function stream() {
     var canvas = document.getElementById('canvas');
     var context = canvas.getContext('2d');
     var timer;
+    const blazeface_detector = await blazeface.load();
     const model = await tf.loadLayersModel('static/tfjsmodel/model.json');
-    const displaySize = { width: canvas.width, height: canvas.height };
     document.getElementById('stop_stream').addEventListener('click', function () {
         clearTimeout(timer);
     });
@@ -141,8 +143,8 @@ async function stream() {
         clearTimeout(timer);
         timer = setTimeout(async function () {
             context.drawImage(video, 0, 0, 640, 480);
-            Get_Metric(model, displaySize).then(function (result) {
-                if (result < 15) {
+            Get_Metric(blazeface_detector, model).then(function (result) {
+                if (result >= 70) {
                     document.getElementById('result').innerHTML =
                         String(result) + String(', смотрит!');
                 } else {
@@ -169,7 +171,7 @@ async function stream() {
             });
             clearTimeout(timer);
             cam_interval();
-        }, 5000);
+        }, 500);
     }
     cam_interval();
 }
