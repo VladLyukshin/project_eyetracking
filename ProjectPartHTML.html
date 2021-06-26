@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.2.2/jquery.min.js"></script>
+    <title>Прототип для системы отслеживания положения лица и глаз человека</title>
+    <link href= "{{ url_for('static', filename='ProjectPartCSS.css') }}" rel="stylesheet" type="text/css"/>
+    <script type="module" src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@2.0.0/dist/tf.min.js"></script>
+    <script src="{{ url_for('static', filename='face-api.min.js') }}" type="text/javascript"></script>
+</head>
+<body background="{{ url_for('static', filename='ProjectPicture.jpeg') }}">
+
+<div id="number">
+    Текущее значение: <div id="result"></div>
+</div>
+
+
+<div id="put">
+    <input type="text" onkeyup="check()" class="form-control" id="name" placeholder="Введите имя">
+    <script>
+        function check() {
+            if ($('#name').val() != '')
+                $('#translation-of-photo').removeAttr('disabled');
+            else
+                $('#translation-of-photo').attr('disabled','disable');
+            }
+    </script>
+    <button type = "submit" disabled="disabled" style="font-size: 20px;" id="translation-of-photo">Старт</button>
+    <script>
+    $('#translation-of-photo').click(function() {
+        $("#translation-of-photo").css("display", "none");
+        $("#name").css("display", "none");
+    });
+</script>
+</div>
+
+
+<div id="show">
+<video id="video" width="640" height="480" style="border:1px solid #d3d3d3" autoplay> </video>
+<canvas id="canvas" width="640" height="480"></canvas><br>
+    <script type="module" src="{{ url_for('static', filename='main.js') }}"></script>
+</div>
+
+
+<div id="attention">
+Чтобы запустить скрипт, после кнопки Старт нажмите на Продолжить. Для паузы нажмите Стоп. Чтобы возобновить скрипт после паузы нажмите Продолжить.
+</div>
+
+<button type = "submit" style="font-size: 20px;" id="stop_stream">Стоп</button>
+<button type = "submit" style="font-size: 20px;" id="continue_stream">Продолжить</button>
+
+</body>
+
+</html>
